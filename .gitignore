@@ -1,0 +1,23 @@
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# Variables de entorno (MUY IMPORTANTE)
+.env
+
+# Archivos temporales de audio
+temp_audio/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDEs
+.vscode/
+.idea/
+
+# Sistema
+.DS_Store
+Thumbs.db

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analizador de Reuniones AI</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Analizador de Reuniones</h1>
+            <p>Sube o graba el audio de tu reunión para obtener un resumen inteligente y análisis de sentimiento.</p>
+        </header>
+
+        <!-- Sección de Carga -->
+        <section id="upload-section" class="card">
+            <div id="drop-zone" class="drop-zone">
+                <div class="drop-zone-content">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <p>Arrastra tu audio aquí o haz clic para seleccionar</p>
+                    <input type="file" id="audio-input" accept=".mp3,.wav,.m4a,.ogg,.webm" hidden>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <button id="record-btn" class="btn btn-secondary">
+                    <span class="icon">●</span> Grabar Audio
+                </button>
+                <button id="analyze-btn" class="btn btn-primary" disabled>
+                    Analizar Reunión
+                </button>
+            </div>
+
+            <div id="status-container" class="hidden">
+                <div class="spinner"></div>
+                <p id="status-message">Preparando...</p>
+            </div>
+        </section>
+
+        <!-- Sección de Resultados -->
+        <section id="results-section" class="hidden">
+            <div class="results-grid">
+                <!-- Título y Resumen -->
+                <div class="card full-width">
+                    <h2 id="res-titulo">Título de la Reunión</h2>
+                    <p id="res-resumen" class="executive-summary"></p>
+                </div>
+
+                <!-- Participantes y Temas -->
+                <div class="card">
+                    <h3>Participantes</h3>
+                    <ul id="res-participantes"></ul>
+                </div>
+                <div class="card">
+                    <h3>Temas Discutidos</h3>
+                    <ul id="res-temas"></ul>
+                </div>
+
+                <!-- Decisiones -->
+                <div class="card full-width">
+                    <h3>Decisiones Tomadas</h3>
+                    <ul id="res-decisiones"></ul>
+                </div>
+
+                <!-- Acciones -->
+                <div class="card full-width">
+                    <h3>Plan de Acción</h3>
+                    <table id="res-acciones">
+                        <thead>
+                            <tr>
+                                <th>Tarea</th>
+                                <th>Responsable</th>
+                                <th>Plazo</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <!-- Sentimiento -->
+                <div class="card" id="sentiment-card">
+                    <h3>Sentimiento de la Reunión</h3>
+                    <div class="sentiment-badge" id="sentiment-label"></div>
+                    <div class="sentiment-scores">
+                        <div class="score-bar"><span class="label">Positivo</span> <div class="bar"><div id="score-pos" class="fill pos"></div></div></div>
+                        <div class="score-bar"><span class="label">Neutral</span> <div class="bar"><div id="score-neu" class="fill neu"></div></div></div>
+                        <div class="score-bar"><span class="label">Negativo</span> <div class="bar"><div id="score-neg" class="fill neg"></div></div></div>
+                    </div>
+                </div>
+
+                <!-- Transcripción Colapsable -->
+                <div class="card">
+                    <button class="collapse-btn" id="toggle-transcription">
+                        Ver Transcripción Completa
+                    </button>
+                    <div id="res-transcription" class="transcription-text hidden"></div>
+                </div>
+            </div>
+
+            <!-- Bot Conversacional -->
+            <div class="card chat-card">
+                <h3>Asistente de la Reunión</h3>
+                <div id="chat-history" class="chat-history">
+                    <div class="message assistant">¡Hola! Soy tu asistente. Puedas preguntarme cualquier detalle sobre la reunión que acabamos de analizar.</div>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="chat-input" placeholder="Escribe tu pregunta...">
+                    <button id="chat-send" class="btn btn-primary">Enviar</button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        let currentSessionId = null;
+        let selectedFile = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+
+        const dropZone = document.getElementById('drop-zone');
+        const audioInput = document.getElementById('audio-input');
+        const recordBtn = document.getElementById('record-btn');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const statusContainer = document.getElementById('status-container');
+        const statusMessage = document.getElementById('status-message');
+        const resultsSection = document.getElementById('results-section');
+        const uploadSection = document.getElementById('upload-section');
+
+        // Drag & Drop logic
+        dropZone.onclick = () => audioInput.click();
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+        dropZone.ondragleave = () => dropZone.classList.remove('dragover');
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                selectedFile = e.dataTransfer.files[0];
+                updateFileUI();
+            }
+        };
+
+        audioInput.onchange = () => {
+            if (audioInput.files.length) {
+                selectedFile = audioInput.files[0];
+                updateFileUI();
+            }
+        };
+
+        function updateFileUI() {
+            dropZone.querySelector('p').textContent = `Archivo seleccionado: ${selectedFile.name}`;
+            analyzeBtn.disabled = false;
+        }
+
+        // Recording logic
+        recordBtn.onclick = async () => {
+            if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    
+                    mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+                    mediaRecorder.onstop = () => {
+                        selectedFile = new File(audioChunks, "grabacion.webm", { type: "audio/webm" });
+                        updateFileUI();
+                        recordBtn.innerHTML = '<span class="icon">●</span> Grabar Audio';
+                        recordBtn.classList.remove('recording');
+                    };
+                    
+                    mediaRecorder.start();
+                    recordBtn.innerHTML = '<span class="icon">■</span> Detener Grabación';
+                    recordBtn.classList.add('recording');
+                } catch (err) {
+                    alert("No se pudo acceder al micrófono.");
+                }
+            } else {
+                mediaRecorder.stop();
+            }
+        };
+
+        // Analysis logic
+        analyzeBtn.onclick = async () => {
+            if (!selectedFile) return;
+
+            const formData = new FormData();
+            formData.append('audio', selectedFile);
+
+            uploadSection.classList.add('loading');
+            statusContainer.classList.remove('hidden');
+            
+            const steps = [
+                "Subiendo audio...",
+                "Transcribiendo con Whisper...",
+                "Analizando con Gemini...",
+                "Calculando sentimiento..."
+            ];
+
+            let stepIdx = 0;
+            const stepInterval = setInterval(() => {
+                if (stepIdx < steps.length) {
+                    statusMessage.textContent = steps[stepIdx];
+                    stepIdx++;
+                }
+            }, 2000);
+
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                clearInterval(stepInterval);
+                
+                if (response.ok) {
+                    displayResults(data);
+                } else {
+                    alert("Error en el análisis: " + data.detail);
+                }
+            } catch (err) {
+                alert("Error de conexión con el servidor.");
+            } finally {
+                statusContainer.classList.add('hidden');
+                uploadSection.classList.remove('loading');
+            }
+        };
+
+        function displayResults(data) {
+            currentSessionId = data.session_id;
+            
+            document.getElementById('res-titulo').textContent = data.analysis.titulo || "Reunión Sin Título";
+            document.getElementById('res-resumen').textContent = data.analysis.resumen || "No se pudo generar un resumen.";
+            
+            // Participantes
+            const partUl = document.getElementById('res-participantes');
+            partUl.innerHTML = '';
+            (data.analysis.participantes || []).forEach(p => {
+                const li = document.createElement('li');
+                li.textContent = p;
+                partUl.appendChild(li);
+            });
+
+            // Temas
+            const temasUl = document.getElementById('res-temas');
+            temasUl.innerHTML = '';
+            (data.analysis.temas || []).forEach(t => {
+                const li = document.createElement('li');
+                li.textContent = t;
+                temasUl.appendChild(li);
+            });
+
+            // Decisiones
+            const decUl = document.getElementById('res-decisiones');
+            decUl.innerHTML = '';
+            (data.analysis.decisiones || []).forEach(d => {
+                const li = document.createElement('li');
+                li.textContent = d;
+                decUl.appendChild(li);
+            });
+
+            // Acciones
+            const accTbody = document.querySelector('#res-acciones tbody');
+            accTbody.innerHTML = '';
+            (data.analysis.acciones || []).forEach(a => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${a.tarea}</td><td>${a.responsable}</td><td>${a.plazo}</td>`;
+                accTbody.appendChild(tr);
+            });
+
+            // Sentimiento
+            const sBadge = document.getElementById('sentiment-label');
+            sBadge.textContent = data.sentiment.descripcion;
+            sBadge.className = 'sentiment-badge ' + data.sentiment.etiqueta.toLowerCase();
+            
+            document.getElementById('score-pos').style.width = (data.sentiment.scores.POS * 100) + '%';
+            document.getElementById('score-neu').style.width = (data.sentiment.scores.NEU * 100) + '%';
+            document.getElementById('score-neg').style.width = (data.sentiment.scores.NEG * 100) + '%';
+
+            // Transcripción
+            document.getElementById('res-transcription').textContent = data.transcription;
+
+            resultsSection.classList.remove('hidden');
+            resultsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Chat logic
+        const chatInput = document.getElementById('chat-input');
+        const chatSend = document.getElementById('chat-send');
+        const chatHistory = document.getElementById('chat-history');
+
+        chatSend.onclick = async () => {
+            const msg = chatInput.value.trim();
+            if (!msg || !currentSessionId) return;
+
+            addMessage('user', msg);
+            chatInput.value = '';
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: currentSessionId, message: msg })
+                });
+                const data = await response.json();
+                addMessage('assistant', data.response);
+            } catch (err) {
+                addMessage('assistant', "Lo siento, hubo un error procesando tu pregunta.");
+            }
+        };
+
+        function addMessage(role, text) {
+            const div = document.createElement('div');
+            div.className = `message ${role}`;
+            div.textContent = text;
+            chatHistory.appendChild(div);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        // UI Interactions
+        document.getElementById('toggle-transcription').onclick = function() {
+            const el = document.getElementById('res-transcription');
+            el.classList.toggle('hidden');
+            this.textContent = el.classList.contains('hidden') ? 'Ver Transcripción Completa' : 'Ocultar Transcripción';
+        };
+
+        chatInput.onkeypress = (e) => { if(e.key === 'Enter') chatSend.click(); };
+
+    </script>
+</body>
+</html>
