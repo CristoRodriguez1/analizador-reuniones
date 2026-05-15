@@ -63,5 +63,3 @@ Luego, abre tu navegador en: [http://localhost:8000](http://localhost:8000)
 - Se ha implementado un patrón Singleton para la carga de Whisper, optimizando el uso de memoria.
 - Las tareas pesadas se ejecutan en un `executor` para no bloquear el servidor.
 
----
-Desarrollado con ❤️ usando FastAPI y Google Gemini.
