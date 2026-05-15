@@ -1,13 +1,13 @@
 import os
 import json
-import google.generativeai as genai
+from google import genai
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configuración de Gemini para el chat
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# Configuración de Gemini para el chat con el nuevo SDK
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 # Estado en memoria
 sessions: Dict[str, Dict[str, Any]] = {}
@@ -59,15 +59,16 @@ Responde las preguntas del usuario de forma clara y concisa basándote únicamen
             role = "user" if msg["role"] == "user" else "model"
             history.append({"role": role, "parts": [msg["content"]]})
         
-        chat_session = model.start_chat(history=history)
-        
         # Determinar el mensaje a enviar: incluir contexto solo en el primer turno
         if not history:
             message_to_send = f"{system_prompt}\n\nPrimera pregunta del usuario: {user_message}"
         else:
             message_to_send = user_message
         
-        response = chat_session.send_message(message_to_send)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-lite",
+            contents=message_to_send
+        )
         assistant_response = response.text.strip()
         
         # Agregar respuesta al historial

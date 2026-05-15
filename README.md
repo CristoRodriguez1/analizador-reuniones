@@ -1,69 +1,67 @@
-# Analizador de Reuniones
+# 🎙️ Analizador de Reuniones AI
 
-## Planteamiento del Problema
-En el entorno laboral moderno, las reuniones son constantes y generan una gran cantidad de información. A menudo, los participantes pierden detalles importantes, las tareas asignadas no quedan claras o el sentimiento general de la reunión no se percibe de manera objetiva. La transcripción manual es tediosa y el análisis manual de largas grabaciones consume demasiado tiempo.
+Una herramienta inteligente para transcribir, resumir y analizar el sentimiento de tus reuniones de trabajo utilizando Inteligencia Artificial de vanguardia.
 
-## Objetivo General
-Desarrollar una herramienta integral que automatice el procesamiento de grabaciones de reuniones, proporcionando transcripciones precisas, resúmenes inteligentes, identificación de puntos clave (participantes, temas, decisiones, acciones) y un análisis de sentimiento, facilitando además la interacción con la información a través de un chat inteligente.
+## 🚀 Características
+- **Transcripción Precisa**: Usa `OpenAI Whisper` para convertir audio a texto.
+- **Resumen Inteligente**: Genera títulos, temas, decisiones y planes de acción usando `Google Gemini 2.0 Flash Lite`.
+- **Análisis de Sentimiento**: Evalúa el tono emocional de la reunión (Productivo, Tenso, Neutral).
+- **Asistente Conversacional**: Chat interactivo para preguntar detalles específicos sobre la reunión analizada.
+- **Grabación Directa**: Captura audio desde el navegador o sube archivos existentes.
 
-## Metodología
-El proyecto sigue un flujo de procesamiento secuencial representado en el siguiente diagrama:
+## 🛠️ Requisitos Previos
+1. **Python 3.10+** instalado.
+2. **FFmpeg**: Necesario para el procesamiento de audio.
+   - *Nota*: El sistema está configurado para buscarlo en una ruta específica de Windows, pero se recomienda tenerlo en el PATH del sistema.
 
-1. **Captura**: El usuario sube un archivo o graba directamente desde el navegador.
-2. **Transcripción**: Se utiliza OpenAI Whisper para convertir el audio a texto.
-3. **Análisis de Contenido**: Google Gemini 1.5 Flash procesa el texto para extraer entidades y estructurar el resumen.
-4. **Análisis de Sentimiento**: Un modelo RoBERTuito especializado en español evalúa el tono de la reunión.
-5. **Persistencia y Chat**: Se crea una sesión en memoria que permite al usuario realizar preguntas específicas sobre lo discutido.
+## 📦 Instalación y Configuración
 
-*(El diagrama de flujo se encuentra conceptualmente integrado en este proceso de 5 pasos)*.
+Sigue estos pasos para poner en marcha el proyecto:
 
-## Desarrollo
-El sistema está construido con:
-- **Backend**: FastAPI (Python) para una API de alto rendimiento.
-- **Modelos de IA**: 
-  - `openai-whisper` para procesamiento de audio.
-  - `google-generativeai` para razonamiento avanzado.
-  - `transformers` con `pysentimiento` para análisis emocional.
-- **Frontend**: Vanilla JavaScript, HTML5 y CSS3 con diseño responsivo y moderno.
+### 1. Clonar el repositorio
+```bash
+git clone https://github.com/CristoRodriguez1/analizador-reuniones.git
+cd analizador-reuniones
+```
 
-## Resultados
-Se ha logrado una plataforma capaz de reducir el tiempo de post-procesamiento de una reunión de horas a solo un par de minutos. El usuario obtiene una visualización clara de las decisiones y un plan de acción inmediato, junto con una interfaz de chat para resolver dudas sin tener que volver a escuchar el audio.
+### 2. Crear entorno virtual
+```powershell
+python -m venv venv
+.\venv\Scripts\activate
+```
 
-## Discusión
-La precisión del sistema depende en gran medida de la calidad del audio. Si bien Whisper es robusto, ruidos de fondo extremos pueden afectar la transcripción. El uso de Gemini 1.5 Flash ofrece un equilibrio óptimo entre velocidad y capacidad de análisis para estructurar los datos JSON requeridos.
+### 3. Instalar dependencias
+```powershell
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+### 4. Configurar variables de entorno
+Crea un archivo llamado `.env` en la raíz del proyecto (puedes usar `.env.example` como base):
+```env
+GEMINI_API_KEY=tu_clave_de_google_ai_studio
+WHISPER_MODEL=base
+MAX_AUDIO_DURATION_SECONDS=600
+```
+> **IMPORTANTE**: Nunca compartas tu `GEMINI_API_KEY` ni la subas a repositorios públicos.
+
+## 🏃 Ejecución
+Para iniciar el servidor de desarrollo:
+```powershell
+uvicorn app.main:app --reload
+```
+Luego, abre tu navegador en: [http://localhost:8000](http://localhost:8000)
+
+## 📁 Estructura del Proyecto
+- `app/`: Lógica principal (FastAPI, Pipeline de IA, Bot).
+- `static/`: Archivos CSS y recursos estáticos.
+- `temp_audio/`: Carpeta temporal para procesar grabaciones (se limpia automáticamente).
+- `requirements.txt`: Lista de librerías necesarias.
+
+## 💡 Notas de Desarrollo
+- El sistema utiliza el nuevo SDK de `google-genai`.
+- Se ha implementado un patrón Singleton para la carga de Whisper, optimizando el uso de memoria.
+- Las tareas pesadas se ejecutan en un `executor` para no bloquear el servidor.
 
 ---
-
-## Instalación y Ejecución
-
-1. **Clonar el repositorio**:
-   ```bash
-   git clone <url-del-repo>
-   cd analizador-reuniones
-   ```
-
-2. **Crear entorno virtual**:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # En Windows: venv\Scripts\activate
-   ```
-
-3. **Instalar dependencias**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Configurar variables de entorno**:
-   - Copia `.env.example` a `.env`:
-     ```bash
-     cp .env.example .env
-     ```
-   - Edita `.env` y añade tu `GEMINI_API_KEY`.
-
-5. **Correr la aplicación**:
-   ```bash
-   uvicorn app.main:app --reload
-   ```
-
-6. **Acceder**:
-   Abre [http://localhost:8000](http://localhost:8000) en tu navegador.
+Desarrollado con ❤️ usando FastAPI y Google Gemini.

@@ -48,11 +48,18 @@ async def analyze(audio: UploadFile = File(...)):
     file_extension = audio.filename.split(".")[-1] if "." in audio.filename else "webm"
     temp_file_path = os.path.join(TEMP_AUDIO_DIR, f"{session_id}.{file_extension}")
     
+    print(f"DEBUG - Archivo recibido: {audio.filename}")
+    print(f"DEBUG - Ruta temporal: {temp_file_path}")
+    print(f"DEBUG - La carpeta temp existe: {os.path.exists(TEMP_AUDIO_DIR)}")
+    
     try:
         # Guardar archivo temporalmente
         async with aiofiles.open(temp_file_path, 'wb') as out_file:
             content = await audio.read()
+            print(f"DEBUG - Bytes leídos: {len(content)}")
             await out_file.write(content)
+        
+        print(f"DEBUG - Archivo guardado, existe: {os.path.exists(temp_file_path)}")
         
         # Ejecutar tareas pesadas en un ejecutor para no bloquear el event loop
         loop = asyncio.get_event_loop()

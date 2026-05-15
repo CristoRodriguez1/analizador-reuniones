@@ -1,15 +1,28 @@
 import os
 import json
 import whisper
-import google.generativeai as genai
+from google import genai
 from transformers import pipeline
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configuración de Gemini
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# Agregar ffmpeg al PATH del proceso para que Whisper lo encuentre
+ffmpeg_bin = r"C:\Users\LENOVO\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.1-full_build\bin"
+os.environ["PATH"] = ffmpeg_bin + ";" + os.environ["PATH"]
+
+# Configuración de Gemini con el nuevo SDK
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+# Listar modelos disponibles para depuración
+try:
+    models = client.models.list()
+    print("DEBUG MODELOS DISPONIBLES:")
+    for m in models:
+        print(f"  - {m.name}")
+except Exception as e:
+    print(f"DEBUG ERROR LISTANDO MODELOS: {e}")
 
 # Singleton para Whisper
 _whisper_model = None
@@ -26,10 +39,16 @@ def transcribe_audio(file_path: str) -> str:
     Transcribe el archivo de audio usando OpenAI Whisper.
     """
     try:
+        print(f"DEBUG - Transcribiendo archivo: {file_path}")
+        print(f"DEBUG - El archivo existe: {os.path.exists(file_path)}")
         model = get_whisper_model()
+        print(f"DEBUG - Modelo cargado, iniciando transcripción...")
         result = model.transcribe(file_path)
+        print(f"DEBUG - Transcripción completada: {result['text'][:100]}...")
         return result["text"].strip()
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise ValueError(f"Error al transcribir el audio: {str(e)}")
 
 def analyze_with_gemini(transcription: str) -> Dict[str, Any]:
@@ -37,8 +56,6 @@ def analyze_with_gemini(transcription: str) -> Dict[str, Any]:
     Analiza la transcripción usando Google Gemini 1.5 Flash.
     """
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        
         prompt = f"""
 Eres un asistente experto en análisis de reuniones de trabajo. Analiza la siguiente transcripción y responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin explicaciones, sin bloques de código markdown.
 
@@ -57,8 +74,12 @@ El JSON debe tener exactamente esta estructura:
 Transcripción:
 {transcription}
 """
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-lite",
+            contents=prompt
+        )
         text_response = response.text.strip()
+        print(f"DEBUG GEMINI - Respuesta cruda: {text_response[:500]}")
         
         # Limpiar bloques de código markdown si existen
         if text_response.startswith("```json"):
@@ -74,6 +95,7 @@ Transcripción:
             return {"error": "Error al parsear el JSON de Gemini", "raw_response": text_response}
             
     except Exception as e:
+        print(f"DEBUG GEMINI ERROR: {str(e)}")
         return {"error": f"Error en la comunicación con Gemini: {str(e)}"}
 
 def analyze_sentiment(transcription: str) -> Dict[str, Any]:
@@ -83,8 +105,9 @@ def analyze_sentiment(transcription: str) -> Dict[str, Any]:
     try:
         # Usamos el pipeline de transformers con el modelo indicado
         sentiment_pipeline = pipeline(
-            "sentiment-analysis", 
-            model="pysentimiento/robertuito-sentiment-analysis"
+            "text-classification", 
+            model="pysentimiento/robertuito-sentiment-analysis",
+            top_k=3
         )
         
         # Dividir la transcripción en fragmentos de máximo 400 caracteres
